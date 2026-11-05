@@ -36,6 +36,7 @@
     <string name="adb_active">已启用</string>
     <string name="adb_inactive">已禁用</string>
     <string name="adb_desc">开启/关闭无线 ADB，监听端口固定为 5555。</string>
+    <string name="dev_options">开发者选项 ›</string>
 
     <string name="log_label">日志</string>
     <string name="refresh">刷新</string>
