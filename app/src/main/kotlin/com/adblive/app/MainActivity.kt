@@ -22,6 +22,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.materialswitch.MaterialSwitch
 import com.adblive.app.util.AdbGuardManager
+import com.adblive.app.util.SecureSettingsPermission
 import com.adblive.app.util.ShieldStateFile
 import com.adblive.app.util.ShellUtils
 import com.adblive.app.util.XposedStatus
@@ -119,6 +120,7 @@ class MainActivity : AppCompatActivity() {
         swipeRefresh.setOnRefreshListener { refresh() }
         swipeRefresh.setColorSchemeColors(getColor(R.color.teal))
         tvIp.setOnClickListener { copyIp() }
+        findViewById<View>(R.id.btnDevOptions).setOnClickListener { openDevOptions() }
 
         tvAboutToggle.setOnClickListener { toggleAbout() }
 
@@ -213,6 +215,15 @@ class MainActivity : AppCompatActivity() {
                 .map { it.hostAddress }
                 .firstOrNull() ?: ""
         } catch (_: Exception) { "" }
+    }
+
+    private fun openDevOptions() {
+        try {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+        } catch (_: Exception) {
+            // 个别 ROM 没有该入口时退回系统设置
+            try { startActivity(Intent(Settings.ACTION_SETTINGS)) } catch (_: Exception) { }
+        }
     }
 
     private fun copyIp() {
@@ -458,7 +469,7 @@ class MainActivity : AppCompatActivity() {
     private val adbToggleSeq = java.util.concurrent.atomic.AtomicInteger(0)
 
     private fun toggleAdb(on: Boolean) {
-        val canSecure = checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val canSecure = SecureSettingsPermission.isGranted(this)
         if (!rootOk && !canSecure) {
             appendLog("需要 Root 权限才能开关无线 ADB")
             showRootRequiredHint()
@@ -468,16 +479,32 @@ class MainActivity : AppCompatActivity() {
         val seq = adbToggleSeq.incrementAndGet()
         adbWorker.execute {
             if (seq != adbToggleSeq.get()) return@execute
-            performToggle(on, seq)
+            val secure = SecureSettingsPermission.ensureGranted(applicationContext, rootOk)
+            if (!secure) {
+                runOnUiThread {
+                    if (seq == adbToggleSeq.get()) {
+                        appendLog("需要 WRITE_SECURE_SETTINGS 权限才能关闭最高意志开关")
+                        showRootRequiredHint()
+                        swAdb.isChecked = !on
+                    }
+                }
+                return@execute
+            }
+            performToggle(on, seq, secure)
         }
     }
 
-    private fun performToggle(on: Boolean, seq: Int) {
+    private fun performToggle(on: Boolean, seq: Int, secure: Boolean) {
         if (on) {
             // User wants ADB on: clear intent file so guard resumes
-            AdbGuardManager.clearUserDisabledAdb()
-            val secureOk = writeAdbWifiSetting(true)
-            if (rootOk) {
+            val intentWasPresent = rootOk && AdbGuardManager.isUserDisabledAdb()
+            val intentCleared = !rootOk || AdbGuardManager.clearUserDisabledAdb()
+            val secureOk = intentCleared && writeAdbWifiSetting(true, secure)
+            if (!secureOk && rootOk) {
+                if (intentWasPresent) AdbGuardManager.writeUserDisabledAdb()
+                else AdbGuardManager.clearUserDisabledAdb()
+            }
+            if (secureOk && rootOk) {
                 ShellUtils.executeSu("setprop service.adb.tcp.port 5555")
                 ShellUtils.executeSu("stop adbd && start adbd")
                 // 固定端口已被设置：确保卸载清理器在位（没开被动守护时的兜底）
@@ -486,10 +513,15 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread { appendLog(if (secureOk) "adb enabling on port 5555" else "adb enable failed (no permission)") }
         } else {
             // User wants ADB off: write intent file so guard won't restore
-            AdbGuardManager.writeUserDisabledAdb()
+            val intentWasPresent = rootOk && AdbGuardManager.isUserDisabledAdb()
+            val intentWritten = !rootOk || AdbGuardManager.writeUserDisabledAdb()
             // 必须用本应用自己的 uid 写：盾 armed 时只放行本应用，root/su 写入会被盾拦
-            val secureOk = writeAdbWifiSetting(false)
-            if (rootOk) {
+            val secureOk = intentWritten && writeAdbWifiSetting(false, secure)
+            if (!secureOk && rootOk) {
+                if (intentWasPresent) AdbGuardManager.writeUserDisabledAdb()
+                else AdbGuardManager.clearUserDisabledAdb()
+            }
+            if (secureOk && rootOk) {
                 ShellUtils.executeSu("setprop service.adb.tcp.port 0")
                 // adbd 只在启动时读端口属性，不重启的话 5555 监听仍然在（"假关闭"）
                 ShellUtils.executeSu("stop adbd && start adbd")
@@ -552,13 +584,9 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) { false }
     }
 
-    /** 先用自己的 uid 写（盾放行本应用）；失败且有 root 时退回 su。 */
-    private fun writeAdbWifiSetting(on: Boolean): Boolean {
-        if (putSecureAdb(on)) return true
-        if (!rootOk) return false
-        return ShellUtils.executeSu(
-            "settings put global adb_wifi_enabled " + (if (on) "1" else "0")
-        ).isSuccess()
+    /** 只用自己的 uid 写；最高意志关闭时不能退回会被主动盾拦截的 su。 */
+    private fun writeAdbWifiSetting(on: Boolean, secure: Boolean): Boolean {
+        return secure && putSecureAdb(on)
     }
 
     private fun getSecureAdb(): ShellUtils.Result {

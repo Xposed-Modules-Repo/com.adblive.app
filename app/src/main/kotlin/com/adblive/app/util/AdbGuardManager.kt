@@ -209,13 +209,16 @@ object AdbGuardManager {
 
     // #11: also read port from PORT_FILE, not just getprop
     /** Write intent file: tells guard not to restore ADB */
-    fun writeUserDisabledAdb() {
-        ShellUtils.executeSu("touch " + USER_DISABLED_ADB_FILE)
+    fun writeUserDisabledAdb(): Boolean {
+        val result = ShellUtils.executeSu("touch " + USER_DISABLED_ADB_FILE)
+        return result.isSuccess() && isUserDisabledAdb()
     }
 
     /** Delete intent file: guard will resume normal ADB restoration */
-    fun clearUserDisabledAdb() {
-        ShellUtils.executeSu("rm -f " + USER_DISABLED_ADB_FILE)
+    fun clearUserDisabledAdb(): Boolean {
+        return ShellUtils.executeSu(
+            "rm -f " + USER_DISABLED_ADB_FILE + " && [ ! -e " + USER_DISABLED_ADB_FILE + " ]"
+        ).isSuccess()
     }
 
     /** Check if user has manually disabled ADB */

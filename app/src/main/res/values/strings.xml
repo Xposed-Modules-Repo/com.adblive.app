@@ -30,12 +30,13 @@
     <string name="guard_label">Passive Guard</string>
     <string name="guard_active">Guard running</string>
     <string name="guard_inactive">Stopped</string>
-    <string name="guard_desc">Only needs root; a background process restarts adbd if it is killed.</string>
+    <string name="guard_desc">Only needs root; the background process checks every 10 seconds and pulls wireless ADB back at the next check (within 10 seconds) if it is unexpectedly turned off.</string>
 
     <string name="adb_label">Wireless ADB</string>
     <string name="adb_active">Enabled</string>
     <string name="adb_inactive">Disabled</string>
-    <string name="adb_desc">Turn wireless ADB on/off. The listening port is fixed at 5555.</string>
+    <string name="adb_desc">Turn wireless ADB on/off. The port is fixed at 5555. This is your highest-priority choice: turning it off from this card is allowed through Active Shield, while Passive Guard and boot auto-start will not turn it back on. Re-enabling restores protection.</string>
+    <string name="dev_options">Developer options ›</string>
 
     <string name="log_label">LOG</string>
     <string name="refresh">Refresh</string>
