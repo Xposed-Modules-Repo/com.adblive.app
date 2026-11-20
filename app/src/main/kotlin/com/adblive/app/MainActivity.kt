@@ -119,6 +119,7 @@ class MainActivity : AppCompatActivity() {
         swipeRefresh.setOnRefreshListener { refresh() }
         swipeRefresh.setColorSchemeColors(getColor(R.color.teal))
         tvIp.setOnClickListener { copyIp() }
+        findViewById<View>(R.id.btnDevOptions).setOnClickListener { openDevOptions() }
 
         tvAboutToggle.setOnClickListener { toggleAbout() }
 
@@ -213,6 +214,15 @@ class MainActivity : AppCompatActivity() {
                 .map { it.hostAddress }
                 .firstOrNull() ?: ""
         } catch (_: Exception) { "" }
+    }
+
+    private fun openDevOptions() {
+        try {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+        } catch (_: Exception) {
+            // 个别 ROM 没有该入口时退回系统设置
+            try { startActivity(Intent(Settings.ACTION_SETTINGS)) } catch (_: Exception) { }
+        }
     }
 
     private fun copyIp() {

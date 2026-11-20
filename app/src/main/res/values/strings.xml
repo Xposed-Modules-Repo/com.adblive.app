@@ -36,6 +36,7 @@
     <string name="adb_active">Enabled</string>
     <string name="adb_inactive">Disabled</string>
     <string name="adb_desc">Turn wireless ADB on/off. The listening port is fixed at 5555.</string>
+    <string name="dev_options">Developer options ›</string>
 
     <string name="log_label">LOG</string>
     <string name="refresh">Refresh</string>
