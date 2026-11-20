@@ -11,6 +11,11 @@
 * 开机自启：重启后自动部署守护、恢复无线 ADB
 * 卸载零残留：卸载时清理全部注入钩子、守护进程与状态文件，无僵尸残留
 
+## 贡献鸣谢
+
+* [@StriveMario](https://github.com/StriveMario)：修复部分厂商 libc 告警污染 shell 输出导致无线 ADB 开关显示错误的问题（[PR #3](https://github.com/pangziqiang/adblive/pull/3)）。
+* [@gjk0510](https://github.com/gjk0510)（净沙）：贡献无线 ADB 快捷磁贴与系统开发者选项入口（[PR #1](https://github.com/Xposed-Modules-Repo/com.adblive.app/pull/1)）。
+
 ## 构建
 
 ```bash
